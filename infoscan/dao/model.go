@@ -86,3 +86,10 @@ type Job struct {
 	Name   string
 	Status string
 }
+
+type User struct {
+	gorm.Model
+	Username string
+	Password string
+	Role     string
+}

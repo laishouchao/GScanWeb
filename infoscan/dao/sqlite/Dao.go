@@ -32,9 +32,20 @@ func NewDB(dbfile string) *DAO {
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	err = db.AutoMigrate(&dao.Page{}, &dao.WebTree{}, dao.Job{}, dao.ProcessResult{})
+	err = db.AutoMigrate(&dao.Page{}, &dao.WebTree{}, dao.Job{}, dao.ProcessResult{}, dao.User{})
 	if err != nil {
 		log.Fatalln(err.Error())
+	}
+	// 初始化默认管理员用户
+	var count int64
+	db.Model(&dao.User{}).Count(&count)
+	if count == 0 {
+		admin := dao.User{
+			Username: "admin",
+			Password: "admin123", // 生产环境中应使用加密密码
+			Role:     "admin",
+		}
+		db.Create(&admin)
 	}
 	return &DAO{db: db, Mutex: sync.Mutex{}}
 }
@@ -168,4 +179,49 @@ func (D *DAO) GetAllPages(page *dao.Page) []*dao.Page {
 	D.db.Select("ID", "URL").Where(page).Find(&rp)
 	D.Mutex.Unlock()
 	return rp
+}
+
+// GetUserByUsername 根据用户名获取用户
+func (D *DAO) GetUserByUsername(username string) (*dao.User, error) {
+	D.Mutex.Lock()
+	defer D.Mutex.Unlock()
+	var user dao.User
+	err := D.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// CreateUser 创建新用户
+func (D *DAO) CreateUser(user *dao.User) error {
+	D.Mutex.Lock()
+	defer D.Mutex.Unlock()
+	return D.db.Create(user).Error
+}
+
+// GetAllUsers 获取所有用户
+func (D *DAO) GetAllUsers() ([]*dao.User, error) {
+	D.Mutex.Lock()
+	defer D.Mutex.Unlock()
+	var users []*dao.User
+	err := D.db.Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+// UpdateUser 更新用户信息
+func (D *DAO) UpdateUser(user *dao.User) error {
+	D.Mutex.Lock()
+	defer D.Mutex.Unlock()
+	return D.db.Save(user).Error
+}
+
+// DeleteUser 删除用户
+func (D *DAO) DeleteUser(id uint) error {
+	D.Mutex.Lock()
+	defer D.Mutex.Unlock()
+	return D.db.Delete(&dao.User{}, id).Error
 }

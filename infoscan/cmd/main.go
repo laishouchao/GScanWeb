@@ -4,16 +4,13 @@ import (
 	"GScan/infoscan/api"
 	"GScan/infoscan/config"
 	"GScan/infoscan/dao/sqlite"
-	"GScan/pkg"
 	"GScan/pkg/logger"
 	"bufio"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 )
 
@@ -23,58 +20,12 @@ const debugmod = false
 
 var a *api.Api
 var Config *config.Config
-var urlf = flag.String("u", "url.txt", "url text path")
-var outfile = flag.String("o", "outfile.xlsx", "outfile excel path")
 
 func main() {
-	if len(os.Args) >= 2 {
-		switch os.Args[1] {
-		case "run":
-			//infoscan run -u url.txt -o name.xlsx
-			if err := flag.CommandLine.Parse(os.Args[2:]); err != nil {
-				log.Fatal(err)
-			}
-			urls, err := geturl(*urlf)
-			if err != nil {
-				log.Fatal(err)
-			}
-			_, jobID := a.StartCrawlerJob(urls)
-			a.Out2Excel(jobID, *outfile)
-			fmt.Print("Complete!")
-		case "ls":
-			a.GetJobs()
-		case "export":
-			atoi, err := strconv.Atoi(os.Args[2])
-			if err != nil {
-				log.Fatal(err)
-			}
-			a.Out2Excel(uint(atoi), filepath.Join(Config.ResultPath, fmt.Sprintf("%s-ExportJobID-%d.xlsx", time.Now().Format("2006-01-02 15-04-05"), atoi)))
-		default:
-			fmt.Print(`InfoScan
-
-Usage:
-   infoscan                             #自动扫描目录下url.txt文件
-   infoscan run -u url.txt -o name.xlsx #扫描并输出结果
-   infoscan ls                          #列出所有任务
-   infoscan export <JobID>              #导出任务结果`)
-		}
-	} else {
-		urls, err := geturl("url.txt")
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("扫描%d个URL.(Y/N):", len(urls))
-		if !pkg.AskForConfirmation() {
-			return
-		}
-		jobname, jobID := a.StartCrawlerJob(urls)
-		if jobID != 0 {
-			fmt.Printf("JobID:%d Name:%s 运行完成\n", jobID, jobname)
-			fmt.Printf("是否导出(Y/N):")
-			if pkg.AskForConfirmation() {
-				a.Out2Excel(jobID, filepath.Join(Config.ResultPath, jobname+".xlsx"))
-			}
-		}
+	// 启动HTTP API服务
+	httpApi := api.NewHttpApi(a, sqlite.NewDB(filepath.Join(Config.ResultPath, "data.db")), Config)
+	if err := httpApi.Start(":8080"); err != nil {
+		log.Fatalf("启动HTTP API服务失败: %v", err)
 	}
 }
 

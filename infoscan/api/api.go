@@ -37,9 +37,10 @@ func (a *Api) Out2Excel(jobID uint, filename string) {
 	Crawler.Out2Excel(jobID, a.db, filename)
 }
 
-func (a *Api) GetJobs() {
-	jobs := a.db.Getjobs()
-	for _, job := range jobs {
-		fmt.Printf("JobID:%d Name:%s\n", job.ID, job.Name)
-	}
+func (a *Api) GetJobs() []*dao.Job {
+	return a.db.Getjobs()
+}
+
+func (a *Api) GetResults(jobID uint) []dao.ProcessResult {
+	return a.db.GetResult(jobID)
 }
